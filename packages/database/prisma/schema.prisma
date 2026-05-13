@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revoked          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  users            Users    @relation(fields: [userId], references: [id])
+  @@map("sessions")
+}
+
+model MagicLinks {
+  id         String   @id @default(cuid())
+  token_hash String
+  expires_at DateTime
+  used       Boolean  @default(false)
+  user_id    String
+  created_at DateTime @default(now())
+  users      Users    @relation(fields: [user_id], references: [id])
+  @@map("magic_links")
+}
+
+model Users {
+  id          String        @id @default(cuid())
+  email       String        @unique
+  name        String?
+  image       String?
+  google_id   String?       @unique
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+  Session     Session[]
+  magic_links MagicLinks[]
+  @@map("users")
+}
