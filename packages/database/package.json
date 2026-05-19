@@ -26,6 +26,9 @@
     "pg": "^8.20.0"
   },
   "exports": {
-    ".": "./dist/src/index.js"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
   }
 }

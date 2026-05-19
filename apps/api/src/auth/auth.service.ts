@@ -3,12 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
 import { prisma } from '@repo/db';
 import crypto from 'crypto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(MailService) private readonly mailService: MailService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
   async requestMagicLink(email: string) {
@@ -48,7 +50,12 @@ export class AuthService {
       },
     });
 
-    const url = new URL('/auth/verify', process.env.APP_URL);
+    const appUrl = this.configService.get<string>('APP_URL');
+    if (!appUrl) {
+      throw new Error('Missing APP_URL');
+    }
+
+    const url = new URL('/auth/verify', appUrl);
     url.searchParams.set('token', token);
 
     try {
