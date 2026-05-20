@@ -1,22 +1,36 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/features/auth/context/auth-context";
 
+/*
+ * Google callback — the backend sets httpOnly cookies and redirects here
+ * (or directly to /dashboard). This page waits for the auth state to
+ * resolve and redirects to the dashboard.
+ */
 export default function GoogleCallbackPage() {
-  const params = useSearchParams()
-  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    const accessToken = params.get("accessToken")
-    const refreshToken = params.get("refreshToken")
+    if (!isLoading && isAuthenticated) {
+      router.replace("/dashboard");
+    }
 
-    if (accessToken) localStorage.setItem("accessToken", accessToken)
-    if (refreshToken) localStorage.setItem("refreshToken", refreshToken)
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/auth/login");
+    }
+  }, [isLoading, isAuthenticated, router]);
 
-    router.push("/dashboard")
-  }, [params, router])
-
-  return <p>Signing you in with Google...</p>
+  return (
+    <div className="flex min-h-svh items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">
+          Signing you in with Google...
+        </p>
+      </div>
+    </div>
+  );
 }
-
