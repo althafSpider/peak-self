@@ -10,24 +10,36 @@ datasource db {
 model Session {
   id               String   @id @default(cuid())
   userId           String
-  refreshTokenHash String
+  refreshTokenHash String   @unique
   userAgent        String?
   ipAddress        String?
   expiresAt        DateTime
   revoked          Boolean  @default(false)
   createdAt        DateTime @default(now())
-  users            Users    @relation(fields: [userId], references: [id])
+
+  users Users @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenHash, revoked, expiresAt])
+  @@index([expiresAt])
+
   @@map("sessions")
 }
 
 model MagicLinks {
   id         String   @id @default(cuid())
-  token_hash String
+  token_hash String   @unique
   expires_at DateTime
   used       Boolean  @default(false)
   user_id    String
   created_at DateTime @default(now())
-  users      Users    @relation(fields: [user_id], references: [id])
+
+  users Users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([token_hash, used, expires_at])
+  @@index([user_id, used])
+  @@index([expires_at])
+
   @@map("magic_links")
 }
 

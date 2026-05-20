@@ -15,6 +15,7 @@ import { RequestMagicLinkDto } from './dto/request-magic-link.dto';
 import { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -48,7 +49,7 @@ function clearAuthCookies(res: Response) {
 @Controller('auth')
 export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
-
+@Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('request-magic-link')
   async requestMagicLink(@Body() dto: RequestMagicLinkDto) {
     return this.authService.requestMagicLink(dto.email);
