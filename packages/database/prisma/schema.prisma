@@ -22,7 +22,6 @@ model Session {
   @@index([userId])
   @@index([refreshTokenHash, revoked, expiresAt])
   @@index([expiresAt])
-
   @@map("sessions")
 }
 
@@ -39,19 +38,458 @@ model MagicLinks {
   @@index([token_hash, used, expires_at])
   @@index([user_id, used])
   @@index([expires_at])
-
   @@map("magic_links")
 }
 
 model Users {
-  id          String        @id @default(cuid())
-  email       String        @unique
-  name        String?
-  image       String?
-  google_id   String?       @unique
-  created_at  DateTime      @default(now())
-  updated_at  DateTime      @updatedAt
-  Session     Session[]
-  magic_links MagicLinks[]
+  id               String            @id @default(cuid())
+  email            String            @unique
+  name             String?
+  image            String?
+  google_id        String?           @unique
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  Session          Session[]
+  magic_links      MagicLinks[]
+  journalEntries   JournalEntry[]
+  goals            Goal[]
+  weeklyReviews    WeeklyReview[]
+  userAchievements UserAchievement[]
+  domainEvents     DomainEvent[]
+  userSkills       UserSkill[]
+  habits           Habit[]
+  habitLogs        HabitLog[]
+  profile          UserProfile?
+  onboarding       UserOnboarding?
+  dailyCheckIns    DailyCheckIn[]
+
   @@map("users")
+}
+
+model UserProfile {
+  id String @id @default(cuid())
+
+  userId String @unique @map("user_id")
+
+  displayName String? @map("display_name")
+
+  timezone String?
+
+  bio String?
+
+  currentPhaseId String? @map("current_phase_id")
+
+  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  currentPhase Phase? @relation(fields: [currentPhaseId], references: [id])
+
+  @@map("user_profiles")
+}
+
+model UserOnboarding {
+  id String @id @default(cuid())
+
+  userId String @unique @map("user_id")
+
+  currentStep String? @map("current_step")
+
+  primaryGoal String? @map("primary_goal")
+
+  blockers String[]
+
+  timeCommitmentMinutes Int? @map("time_commitment_minutes")
+
+  experienceLevel ExperienceLevel? @map("experience_level")
+
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
+}
+
+model Phase {
+  id String @id @default(cuid())
+
+  name String
+
+  description String?
+
+  phaseOrder Int @unique @map("phase_order")
+
+  durationWeeks Int @map("duration_weeks")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  skills PhaseSkill[]
+
+  habitTemplates HabitTemplate[]
+
+  users UserProfile[]
+  Habit Habit[]
+
+  @@map("phases")
+}
+
+model Habit {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  templateId String? @map("template_id")
+
+  title String
+
+  description String?
+
+  frequency HabitFrequency
+
+  targetCount Int @default(1) @map("target_count")
+
+  active Boolean @default(true)
+
+  skillId String? @map("skill_id")
+
+  phaseId String? @map("phase_id")
+
+  startsAt DateTime? @map("starts_at")
+
+  endsAt DateTime? @map("ends_at")
+
+  archivedAt      DateTime? @map("archived_at")
+  currentStreak   Int       @default(0) @map("current_streak")
+  bestStreak      Int       @default(0) @map("best_streak")
+  lastCompletedAt DateTime? @map("last_completed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  user            Users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  template HabitTemplate? @relation(fields: [templateId], references: [id])
+
+  skill Skill? @relation(fields: [skillId], references: [id])
+
+  phase Phase? @relation(fields: [phaseId], references: [id])
+
+  logs HabitLog[]
+
+  @@index([userId, active])
+  @@index([skillId])
+  @@index([phaseId])
+  @@map("habits")
+}
+
+model HabitLog {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  habitId String @map("habit_id")
+
+  completedDate DateTime @map("completed_date") @db.Date
+
+  notes String?
+
+  score Int @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, completedDate])
+  @@index([userId])
+  @@index([completedDate])
+  @@index([habitId])
+  @@map("habit_logs")
+}
+
+model Skill {
+  id String @id @default(cuid())
+
+  name        String  @unique
+  code        String  @unique
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userSkills UserSkill[]
+
+  phaseSkills PhaseSkill[]
+
+  habitTemplates HabitTemplate[]
+  Habit          Habit[]
+
+  @@map("skills")
+}
+
+model UserSkill {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  skillId String @map("skill_id")
+
+  score Float @default(0)
+
+  level     Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@index([score])
+  @@index([userId])
+  @@index([skillId])
+  @@map("user_skills")
+}
+
+model PhaseSkill {
+  id String @id @default(cuid())
+
+  phaseId String @map("phase_id")
+
+  skillId String @map("skill_id")
+
+  priorityWeight Float @default(1) @map("priority_weight")
+
+  phase Phase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([phaseId, skillId])
+  @@map("phase_skills")
+}
+
+model HabitTemplate {
+  id String @id @default(cuid())
+
+  title String
+
+  description String?
+
+  skillId String? @map("skill_id")
+
+  phaseId String? @map("phase_id")
+
+  difficulty Int @default(1)
+
+  defaultFrequency HabitFrequency @map("default_frequency")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  skill Skill? @relation(fields: [skillId], references: [id])
+
+  phase Phase? @relation(fields: [phaseId], references: [id])
+
+  habits Habit[]
+
+  @@map("habit_templates")
+}
+
+model JournalEntry {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  title String?
+
+  content String
+
+  mood Int?
+
+  energy Int?
+
+  stress Int?
+
+  tags String[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deletedAt DateTime? @map("deleted_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("journal_entries")
+}
+
+model Goal {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  title String
+
+  description String?
+
+  category  GoalCategory
+  deletedAt DateTime?    @map("deleted_at")
+  progress  Float        @default(0)
+
+  status GoalStatus
+
+  targetDate DateTime? @map("target_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt DateTime @default(now()) @map("started_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("goals")
+}
+
+model WeeklyReview {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  wins String?
+
+  struggles String?
+
+  lessons String?
+
+  nextWeekFocus String?   @map("next_week_focus")
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("weekly_reviews")
+}
+
+model Achievement {
+  id String @id @default(cuid())
+
+  code String @unique
+
+  title String
+
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  achievementId String @map("achievement_id")
+
+  earnedAt DateTime @default(now()) @map("earned_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model DomainEvent {
+  id String @id @default(cuid())
+
+  userId String? @map("user_id")
+
+  eventType String @map("event_type")
+
+  entityType String @map("entity_type")
+
+  entityId  String? @map("entity_id")
+  processed Boolean @default(false)
+
+  payload Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user Users? @relation(fields: [userId], references: [id])
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("domain_events")
+}
+
+model DailyCheckIn {
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  mood       Int
+  energy     Int
+  focus      Int
+  stress     Int
+  sleepHours Float? @map("sleep_hours")
+
+  notes       String?
+  checkInDate DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, checkInDate])
+  @@map("daily_check_ins")
+}
+
+enum GoalCategory {
+  FITNESS
+  PRODUCTIVITY
+  FINANCE
+  LEARNING
+  MENTAL_HEALTH
+  SOCIAL
+  SPIRITUAL
+  CAREER
+  OTHER
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+  PAUSED
 }
