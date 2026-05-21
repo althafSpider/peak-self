@@ -69,7 +69,7 @@ export class AuthService {
       throw error;
     }
 
-    return { success: true };
+    return { data: 'Magic link sent' };
   }
 
 async verifyMagicLink(

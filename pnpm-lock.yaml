@@ -44,6 +44,9 @@ importers:
       '@nestjs/throttler':
         specifier: ^6.5.0
         version: 6.5.0(@nestjs/common@11.1.19(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19(@nestjs/common@11.1.19(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.19)(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)
+      '@peak-self/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/database
@@ -312,6 +315,8 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.2
+
+  packages/domain: {}
 
   packages/eslint-config:
     devDependencies:

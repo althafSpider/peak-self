@@ -8,6 +8,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AppLoggerModule } from './common/interceptors/logger/logger.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,7 +24,8 @@ import { AppLoggerModule } from './common/interceptors/logger/logger.module';
   //  LoggerModule.forRoot(),
     AuthModule,
     MailModule,
-    AppLoggerModule 
+    AppLoggerModule,
+    OnboardingModule 
   ],
 
   controllers: [AppController],

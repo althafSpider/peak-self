@@ -96,7 +96,7 @@ model UserOnboarding {
 
   userId String @unique @map("user_id")
 
-  currentStep String? @map("current_step")
+  currentStep OnboardingStep @map("current_step")
 
   primaryGoal String? @map("primary_goal")
 
@@ -492,4 +492,13 @@ enum GoalStatus {
   COMPLETED
   ABANDONED
   PAUSED
+}
+enum OnboardingStep {
+  WELCOME
+  GOALS
+  EXPERIENCE
+  TIME_COMMITMENT
+  BLOCKERS
+  GENERATING_PLAN
+  COMPLETED
 }
