@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
-import { AppLoggerService } from './app-logger.service.ts';
+import { AppLoggerService } from './app-logger.service';
 
 @Module({
   imports: [

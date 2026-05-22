@@ -9,6 +9,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AppLoggerModule } from './common/interceptors/logger/logger.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { PrismaModule } from './prisma/prisma.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +24,7 @@ import { OnboardingModule } from './onboarding/onboarding.module';
       },
     ]),
   //  LoggerModule.forRoot(),
+    PrismaModule,
     AuthModule,
     MailModule,
     AppLoggerModule,

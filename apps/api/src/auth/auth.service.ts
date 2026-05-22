@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
-import { prisma } from '@repo/db';
+import { PrismaService } from '../prisma/prisma.service';
 import crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 
@@ -11,6 +11,7 @@ export class AuthService {
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(MailService) private readonly mailService: MailService,
     @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
   getAppUrl() {
@@ -22,17 +23,17 @@ export class AuthService {
   async requestMagicLink(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    let user = await prisma.users.findUnique({
+    let user = await this.prisma.users.findUnique({
       where: { email: normalizedEmail },
     });
 
     if (!user) {
-      user = await prisma.users.create({
+      user = await this.prisma.users.create({
         data: { email: normalizedEmail },
       });
     }
 
-    const existing = await prisma.magicLinks.findFirst({
+    const existing = await this.prisma.magicLinks.findFirst({
       where: {
         user_id: user.id,
         expires_at: { gt: new Date() },
@@ -48,7 +49,7 @@ export class AuthService {
 
     const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
 
-    await prisma.magicLinks.create({
+    await this.prisma.magicLinks.create({
       data: {
         user_id: user.id,
         token_hash: tokenHash,
@@ -62,7 +63,7 @@ export class AuthService {
     try {
       await this.mailService.sendMagicLink(normalizedEmail, url.toString());
     } catch (error) {
-      await prisma.magicLinks.deleteMany({
+      await this.prisma.magicLinks.deleteMany({
         where: { user_id: user.id },
       });
 
@@ -92,7 +93,7 @@ async verifyMagicLink(
     Date.now() + 1000 * 60 * 60 * 24 * 30,
   );
 
-  const result = await prisma.$transaction(
+  const result = await this.prisma.$transaction(
     async (tx) => {
       const claimed = await tx.magicLinks.updateMany({
         where: {
@@ -182,7 +183,7 @@ async verifyMagicLink(
     const refreshExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
 
     // Keep the transaction focused on database operations only — no crypto/JWT inside
-    const { sessionId, userId } = await prisma.$transaction(
+    const { sessionId, userId } = await this.prisma.$transaction(
       async (tx) => {
         let dbUser =
           (await tx.users.findFirst({
@@ -250,7 +251,7 @@ async verifyMagicLink(
       .update(refreshToken)
       .digest('hex');
 
-    const session = await prisma.session.findFirst({
+    const session = await this.prisma.session.findFirst({
       where: {
         refreshTokenHash,
         revoked: false,
@@ -275,7 +276,7 @@ async verifyMagicLink(
       .update(newRefreshToken)
       .digest('hex');
 
-    await prisma.session.update({
+    await this.prisma.session.update({
       where: {
         id: session.id,
       },
@@ -296,7 +297,7 @@ async verifyMagicLink(
   }
 
   async getUserById(userId: string) {
-    const user = await prisma.users.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -319,7 +320,7 @@ async verifyMagicLink(
       .update(refreshToken)
       .digest('hex');
 
-    await prisma.session.updateMany({
+    await this.prisma.session.updateMany({
       where: {
         refreshTokenHash,
       },

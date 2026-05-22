@@ -16,6 +16,7 @@ import { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -49,7 +50,8 @@ function clearAuthCookies(res: Response) {
 @Controller('auth')
 export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
-@Throttle({ default: { limit: 5, ttl: 60_000 } })
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('request-magic-link')
   async requestMagicLink(@Body() dto: RequestMagicLinkDto) {
     return this.authService.requestMagicLink(dto.email);
@@ -67,8 +69,7 @@ export class AuthController {
     });
 
     setAuthCookies(res, result.accessToken, result.refreshToken);
-
-    return { success: true };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
   }
 
   @Post('refresh')
@@ -85,8 +86,7 @@ export class AuthController {
     const result = await this.authService.refreshSession(refreshToken);
 
     setAuthCookies(res, result.accessToken, result.refreshToken);
-
-    return { success: true };
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
   }
 
   @Post('logout')
@@ -127,8 +127,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async me(@Req() req: any) {
-    const user = await this.authService.getUserById(req.user.userId);
+  async me(@CurrentUser('userId') userId: string) {
+    const user = await this.authService.getUserById(userId);
 
     return {
       user: {

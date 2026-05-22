@@ -1,4 +1,5 @@
-import { ExperienceLevel } from "@peak-self/domain";
+
+import { ExperienceLevel } from "@repo/db";
 import { IsEnum } from "class-validator";
 
 export class UpdateExperienceDto {

@@ -47,6 +47,9 @@ importers:
       '@peak-self/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/database
@@ -8787,7 +8790,7 @@ snapshots:
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 24.12.4
+      '@types/node': 25.7.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 

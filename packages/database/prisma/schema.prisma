@@ -96,7 +96,7 @@ model UserOnboarding {
 
   userId String @unique @map("user_id")
 
-  currentStep OnboardingStep @map("current_step")
+  currentStep OnboardingStep @map("current_step") @default(WELCOME)
 
   primaryGoal String? @map("primary_goal")
 

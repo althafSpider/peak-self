@@ -1,6 +1,9 @@
 import { OnboardingStep } from "@peak-self/domain";
 
-export const ONBOARDING_TRANSITIONS = {
+export const ONBOARDING_TRANSITIONS: Record<
+  OnboardingStep,
+  OnboardingStep[]
+> = {
   [OnboardingStep.WELCOME]: [
     OnboardingStep.GOALS,
   ],
