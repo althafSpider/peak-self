@@ -1,6 +1,7 @@
 // src/modules/events/processors/domain-events.processor.ts
 
 import {
+  Inject,
   Injectable,
   OnModuleInit,
 } from '@nestjs/common';
@@ -21,9 +22,9 @@ export class DomainEventsProcessor
   private isProcessing = false;
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly logger: AppLoggerService,
-    private readonly planGenerationService: PlanGenerationService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AppLoggerService) private readonly logger: AppLoggerService,
+    @Inject(PlanGenerationService) private readonly planGenerationService: PlanGenerationService,
   ) {}
 
   onModuleInit() {

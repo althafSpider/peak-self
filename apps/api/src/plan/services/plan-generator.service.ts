@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { AIPlanService } from './ai-plan.service';
 import { PlanPromptService } from './plan-prompt.service';
@@ -9,10 +9,10 @@ import { GeneratedPlanStatus, OnboardingStep } from '@repo/db';
 @Injectable()
 export class PlanGenerationService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly logger: AppLoggerService,
-    private readonly aiPlanService: AIPlanService,
-    private readonly promptService: PlanPromptService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AppLoggerService) private readonly logger: AppLoggerService,
+    @Inject(AIPlanService) private readonly aiPlanService: AIPlanService,
+    @Inject(PlanPromptService) private readonly promptService: PlanPromptService,
   ) {}
 
   async generatePlan(userId: string) {
