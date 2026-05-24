@@ -11,6 +11,7 @@ import { AppLoggerModule } from './common/interceptors/logger/logger.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
+import { PlanModule } from './plan/plan.module';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { EventsModule } from './events/events.module';
     MailModule,
     AppLoggerModule,
     OnboardingModule,
-    EventsModule 
+    EventsModule,
+    PlanModule 
   ],
 
   controllers: [AppController],
