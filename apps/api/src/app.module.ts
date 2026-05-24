@@ -10,6 +10,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { AppLoggerModule } from './common/interceptors/logger/logger.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     MailModule,
     AppLoggerModule,
-    OnboardingModule 
+    OnboardingModule,
+    EventsModule 
   ],
 
   controllers: [AppController],

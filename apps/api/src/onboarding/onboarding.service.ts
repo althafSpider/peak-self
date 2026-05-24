@@ -1,23 +1,26 @@
-// import { OnboardingStep } from '@peak-self/domain';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ONBOARDING_TRANSITIONS } from './constants/onboarding-transitions';
 import { AppLoggerService } from '../common/interceptors/logger/app-logger.service';
 import { OnboardingStatus, OnboardingStep } from '@repo/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateGoalsDto } from './dto/update-goals.dto';
 import { UpdateExperienceDto } from './dto/update-experience.dto';
 import { UpdateTimeCommitmentDto } from './dto/update-time-commitment.dto';
+import { DOMAIN_EVENTS } from 'src/events/constants/domain-events.constant';
+import { DomainEventsService } from 'src/events/services/domain-events.service';
 
 @Injectable()
 export class OnboardingService {
   constructor(
     @Inject(AppLoggerService) private readonly logger: AppLoggerService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(DomainEventsService)
+    private readonly domainEventsService: DomainEventsService,
   ) {}
   private assertCurrentStep(actual: OnboardingStep, expected: OnboardingStep) {
     if (actual !== expected) {
@@ -25,13 +28,14 @@ export class OnboardingService {
         actual,
         expected,
       });
-
+      if (actual === OnboardingStep.COMPLETED)
+        throw new ConflictException('Onboarding already completed');
       throw new BadRequestException(
         `Expected onboarding step ${expected}, got ${actual}`,
       );
     }
   }
-  private async getCurrentOnboarding(userId: string) {
+   async getCurrentOnboarding(userId: string) {
     const onboarding = await this.prisma.userOnboarding.findUnique({
       where: { userId },
     });
@@ -41,6 +45,7 @@ export class OnboardingService {
     }
     return onboarding;
   }
+
   async startOnboarding(userId: string) {
     this.logger.log(`Starting onboarding for user ${userId}`);
 
@@ -90,17 +95,15 @@ export class OnboardingService {
         });
       }
 
-      await tx.domainEvent.create({
-        data: {
-          userId,
-          eventType: 'onboarding.started',
-          entityType: 'user_onboarding',
-          entityId: createdOnboarding.id,
-          payload: {
-            step: OnboardingStep.WELCOME,
-          },
+      await this.domainEventsService.publish({
+        userId,
+        eventType: DOMAIN_EVENTS.ONBOARDING_STARTED,
+        entityType: 'user_onboarding',
+        entityId: createdOnboarding.id,
+        payload: {
+          nextStep: OnboardingStep.GOALS,
         },
-      });
+      }, tx);
 
       return createdOnboarding;
     });
@@ -111,8 +114,7 @@ export class OnboardingService {
   }
 
   async updateGoals(userId: string, dto: UpdateGoalsDto) {
-    const onboarding = await this.getCurrentOnboarding(userId)
-
+    const onboarding = await this.getCurrentOnboarding(userId);
     this.assertCurrentStep(onboarding.currentStep, OnboardingStep.GOALS);
 
     // Optional idempotency protection
@@ -134,18 +136,16 @@ export class OnboardingService {
         },
       });
 
-      await tx.domainEvent.create({
-        data: {
-          userId,
-          eventType: 'onboarding.goals_completed',
-          entityType: 'user_onboarding',
-          entityId: updated.id,
-          payload: {
-            primaryGoal: dto.primaryGoal,
-            nextStep: OnboardingStep.EXPERIENCE,
-          },
+      await this.domainEventsService.publish({
+        userId,
+        eventType: DOMAIN_EVENTS.ONBOARDING_GOALS_COMPLETED,
+        entityType: 'user_onboarding',
+        entityId: updated.id,
+        payload: {
+          primaryGoal: dto.primaryGoal,
+          nextStep: OnboardingStep.EXPERIENCE,
         },
-      });
+      }, tx);
 
       return updated;
     });
@@ -178,18 +178,16 @@ export class OnboardingService {
           currentStep: OnboardingStep.TIME_COMMITMENT,
         },
       });
-      await tx.domainEvent.create({
-        data: {
+      await this.domainEventsService.publish({
           userId,
-          eventType: 'onboarding.experience_completed',
+          eventType: DOMAIN_EVENTS.ONBOARDING_EXPERIENCE_COMPLETED,
           entityType: 'user_onboarding',
           entityId: updated.id,
           payload: {
             experienceLevel: dto.experienceLevel,
             nextStep: OnboardingStep.TIME_COMMITMENT,
-          },
         },
-      });
+      }, tx);
       return updated;
     });
     return updatedOnboarding.currentStep;
@@ -197,7 +195,10 @@ export class OnboardingService {
 
   async updateTimeCommitment(userId: string, dto: UpdateTimeCommitmentDto) {
     const onboarding = await this.getCurrentOnboarding(userId);
-    this.assertCurrentStep(onboarding.currentStep, OnboardingStep.TIME_COMMITMENT);
+    this.assertCurrentStep(
+      onboarding.currentStep,
+      OnboardingStep.TIME_COMMITMENT,
+    );
     if (onboarding.timeCommitmentMinutes) {
       this.logger.warn(`Time commitment already submitted for user ${userId}`);
 
@@ -213,27 +214,24 @@ export class OnboardingService {
           currentStep: OnboardingStep.BLOCKERS,
         },
       });
-      await tx.domainEvent.create({
-        data: {
+      await this.domainEventsService.publish({
           userId,
-          eventType: 'onboarding.time_commitment_completed',
+          eventType: DOMAIN_EVENTS.ONBOARDING_TIME_COMMITMENT_COMPLETED,
           entityType: 'user_onboarding',
           entityId: updated.id,
           payload: {
             timeCommitmentMinutes: dto.timeCommitmentMinutes,
             nextStep: OnboardingStep.BLOCKERS,
-          },
         },
-      });
+      }, tx);
       return updated;
     });
     return updatedOnboarding.currentStep;
   }
-
   async updateBlockers(userId: string, blockers: string[]) {
     const onboarding = await this.getCurrentOnboarding(userId);
     this.assertCurrentStep(onboarding.currentStep, OnboardingStep.BLOCKERS);
-    if (onboarding.blockers) {
+    if (onboarding.blockers?.length > 0) {
       this.logger.warn(`Blockers already submitted for user ${userId}`);
 
       return {
@@ -248,106 +246,87 @@ export class OnboardingService {
           currentStep: OnboardingStep.GENERATING_PLAN,
         },
       });
-      await tx.domainEvent.create({
-        data: {
-          userId,
-          eventType: 'onboarding.blockers_completed',
-          entityType: 'user_onboarding',
-          entityId: updated.id,
-          payload: {
-            blockers,
-            nextStep: OnboardingStep.GENERATING_PLAN,
-          },
+
+      await this.domainEventsService.publish({
+        userId,
+        eventType: DOMAIN_EVENTS.ONBOARDING_BLOCKERS_COMPLETED,
+        entityType: 'user_onboarding',
+        entityId: updated.id,
+        payload: {
+          blockers,
+          nextStep: OnboardingStep.GENERATING_PLAN,
         },
-      });
+      }, tx);
       return updated;
     });
     return updatedOnboarding.currentStep;
   }
 
- async completeOnboarding(userId: string) {
-  this.logger.log(
-    `Completing onboarding for user ${userId}`,
-  );
+  async completeOnboarding(userId: string) {
+    this.logger.log(`Completing onboarding for user ${userId}`);
 
-  const onboarding = await this.getCurrentOnboarding(userId);
+    const onboarding = await this.getCurrentOnboarding(userId);
 
-  // Validate workflow state
-  this.assertCurrentStep(
-    onboarding.currentStep,
-    OnboardingStep.GENERATING_PLAN,
-  );
-
-  // Prevent duplicate completion
-  if (onboarding.completedAt) {
-    this.logger.warn(
-      `Onboarding already completed for user ${userId}`,
+    // Validate workflow state
+    this.assertCurrentStep(
+      onboarding.currentStep,
+      OnboardingStep.GENERATING_PLAN,
     );
 
-    return {
-      currentStep:
-        onboarding.currentStep,
-    };
-  }
+    // Prevent duplicate completion
+    if (onboarding.completedAt) {
+      this.logger.warn(`Onboarding already completed for user ${userId}`);
 
-  const completedOnboarding =
-    await this.prisma.$transaction(
-      async (tx) => {
-        // Complete onboarding
-        const updated =
-          await tx.userOnboarding.update({
-            where: { userId },
-            data: {
-              currentStep:
-                OnboardingStep.COMPLETED,
+      return {
+        currentStep: onboarding.currentStep,
+      };
+    }
 
-              completedAt: new Date(),
-            },
-          });
+    const completedOnboarding = await this.prisma.$transaction(async (tx) => {
+      // Complete onboarding
+      const updated = await tx.userOnboarding.update({
+        where: { userId },
+        data: {
+          currentStep: OnboardingStep.COMPLETED,
 
-        // Update profile state
-        await tx.userProfile.update({
-          where: { userId },
-          data: {
-            onboardingStatus:
-              OnboardingStatus.COMPLETED,
-          },
-        });
+          completedAt: new Date(),
+        },
+      });
 
-        // Emit domain event
-        await tx.domainEvent.create({
-          data: {
-            userId,
-            eventType:
-              'onboarding.completed',
-            entityType:
-              'user_onboarding',
-            entityId: updated.id,
-            payload: {
-              completedAt:
-                new Date().toISOString(),
-            },
-          },
-        });
+      // Update profile state
+      await tx.userProfile.update({
+        where: { userId },
+        data: {
+          onboardingStatus: OnboardingStatus.COMPLETED,
+        },
+      });
 
-        return updated;
+      // Emit domain event
+      await this.domainEventsService.publish({
+          userId,
+          eventType: DOMAIN_EVENTS.ONBOARDING_COMPLETED,
+          entityType: 'user_onboarding',
+          entityId: updated.id,
+          payload: {
+            completedAt: new Date().toISOString(),
+        },
+      }, tx);
+
+      return updated;
+    });
+
+    this.logger.log(
+      `Onboarding completed successfully for user ${userId}`,
+      'OnboardingService',
+      {
+        userId,
       },
     );
 
-  this.logger.log(
-    `Onboarding completed successfully for user ${userId}`,
-    'OnboardingService',
-    {
-      userId,
-    },
-  );
+    return {
+      currentStep: completedOnboarding.currentStep,
 
-  return {
-    currentStep:
-      completedOnboarding.currentStep,
-
-    completedAt:
-      completedOnboarding.completedAt,
-  };
-}
+      completedAt: completedOnboarding.completedAt,
+    };
+  }
 }

@@ -66,4 +66,9 @@ export class OnboardingController {
   completeOnboarding(@CurrentUser('userId') userId: string) {
     return this.onboardingService.completeOnboarding(userId);
   }
+  @UseGuards(JwtAuthGuard)
+  @Post('me')
+  getProgress(@CurrentUser('userId') userId: string) {
+    return this.onboardingService.getCurrentOnboarding(userId);
+  }
 }
