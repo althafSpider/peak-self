@@ -5,23 +5,46 @@ import { UserOnboarding } from '@repo/db';
 export class PlanPromptService {
   build(onboarding: UserOnboarding): string {
     return `
-You are a self-improvement coach.
+You are an expert self-improvement system.
 
-Generate a habit improvement plan.
+Your task is to generate a personalized habit improvement plan.
 
-User Goal:
+USER DATA:
+
+Primary Goal:
 ${onboarding.primaryGoal}
 
 Experience Level:
 ${onboarding.experienceLevel}
 
-Time Commitment:
-${onboarding.timeCommitmentMinutes} minutes daily
+Available Time Per Day:
+${onboarding.timeCommitmentMinutes} minutes
 
-Blockers:
+Current Blockers:
 ${onboarding.blockers.join(', ')}
 
-Return JSON only.
+RULES:
+
+- Return ONLY valid JSON
+- No markdown
+- No explanations
+- Generate between 3 and 5 habits
+- Habits must be realistic
+- Habits must fit within the user's time commitment
+
+JSON FORMAT:
+
+{
+  "summary": "short summary",
+  "habits": [
+    {
+      "title": "Habit title",
+      "description": "Habit description",
+      "frequency": "DAILY",
+      "targetCount": 1
+    }
+  ]
+}
 `;
   }
 }

@@ -70,6 +70,7 @@ model Users {
   notifications    Notification[]
 
   @@map("users")
+  aianswers AIAnswer[]
 }
 
 model UserProfile {
@@ -548,6 +549,7 @@ model GeneratedPlan {
   @@index([status])
 
   @@map("generated_plans")
+  aiquestions AIQuestion[]
 }
 
 model GeneratedHabit {
@@ -701,6 +703,40 @@ model Notification {
   @@map("notifications")
 }
 
+model AIQuestion {
+  id              String @id @default(cuid())
+
+  generatedPlanId String @map("generated_plan_id")
+
+  question        String
+
+  order           Int
+
+  createdAt       DateTime @default(now())
+
+  plan GeneratedPlan @relation(fields: [generatedPlanId], references: [id], onDelete: Cascade)
+
+  answers AIAnswer[]
+
+  @@map("ai_questions")
+}
+model AIAnswer {
+  id            String @id @default(cuid())
+
+  questionId    String @map("question_id")
+
+  userId        String @map("user_id")
+
+  answer        String
+
+  createdAt     DateTime @default(now())
+
+  question AIQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_answers")
+}
 enum GeneratedPlanStatus {
   PENDING
   GENERATING
