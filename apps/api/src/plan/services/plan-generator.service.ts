@@ -32,7 +32,7 @@ export class PlanGenerationService {
     const generatedPlan = await this.prisma.generatedPlan.create({
       data: {
         userId,
-        status: GeneratedPlanStatus.GENERATING,
+        status: GeneratedPlanStatus.PLAN_GENERATING,
       },
     });
     try {
@@ -80,5 +80,26 @@ export class PlanGenerationService {
 
       throw error;
     }
+  }
+
+  async generateQuestions(userId: string) {
+    this.logger.log(`Generating AI questions for user ${userId}`);
+    const onboarding = await this.prisma.userOnboarding.findUnique({
+      where: { userId },
+    });
+    if (!onboarding) {
+      throw new BadRequestException('Onboarding not found');
+    }
+    if (onboarding.currentStep !== OnboardingStep.AI_QUESTION) {
+      throw new BadRequestException('Ai Questions generation not completed');
+    }
+    const prompt = this.promptService.buildQuestionsPrompt(onboarding);
+    const aiQuestions = await this.aiPlanService.generateQuestions(prompt);
+    const genratedQuestions = await this.prisma.generatedPlan.create({
+      data: {
+        userId,
+        status: GeneratedPlanStatus.QUESTIONS_GENERATING,
+      },
+    });
   }
 }

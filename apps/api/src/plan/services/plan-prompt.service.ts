@@ -47,4 +47,47 @@ JSON FORMAT:
 }
 `;
   }
+
+  buildQuestionsPrompt(
+    onboarding: UserOnboarding,
+  ): string {
+    return `
+You are an expert behavioral coach.
+
+Generate 3 personalized follow-up questions.
+
+USER DATA:
+
+Primary Goal:
+${onboarding.primaryGoal}
+
+Experience:
+${onboarding.experienceLevel}
+
+Time Commitment:
+${onboarding.timeCommitmentMinutes}
+
+Blockers:
+${onboarding.blockers.join(', ')}
+
+RULES:
+
+- Questions must help personalize habits
+- Questions must be concise
+- Return ONLY valid JSON
+- No markdown
+- Must be raw brutal questions that can get an general overview of user
+FORMAT:
+
+{
+  "questions": [
+    {
+      "question": "What distracts you most during work?",
+      "questionType": "TEXT",
+      "order": 1
+    }
+  ]
+}
+`;
+  }
 }

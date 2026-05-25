@@ -243,7 +243,7 @@ export class OnboardingService {
         where: { userId },
         data: {
           blockers,
-          currentStep: OnboardingStep.GENERATING_PLAN,
+          currentStep: OnboardingStep.AI_QUESTION,
         },
       });
 
@@ -254,7 +254,7 @@ export class OnboardingService {
         entityId: updated.id,
         payload: {
           blockers,
-          nextStep: OnboardingStep.GENERATING_PLAN,
+          nextStep: OnboardingStep.AI_QUESTION,
         },
       }, tx);
       return updated;

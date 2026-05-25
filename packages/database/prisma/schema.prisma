@@ -38,18 +38,17 @@ model MagicLinks {
   @@index([token_hash, used, expires_at])
   @@index([user_id, used])
   @@index([expires_at])
-
   @@map("magic_links")
 }
 
 model Users {
-  id               String            @id @default(cuid())
-  email            String            @unique
-  name             String?
-  image            String?
-  google_id        String?           @unique
-  created_at       DateTime          @default(now())
-  updated_at       DateTime          @updatedAt
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  image      String?
+  google_id  String?  @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   Session          Session[]
   magic_links      MagicLinks[]
@@ -68,9 +67,9 @@ model Users {
   userPlans        UserPlan[]
   userPhases       UserPhase[]
   notifications    Notification[]
+  aianswers        AIAnswer[]
 
   @@map("users")
-  aianswers AIAnswer[]
 }
 
 model UserProfile {
@@ -111,14 +110,15 @@ model UserOnboarding {
 
   timeCommitmentMinutes Int? @map("time_commitment_minutes")
 
-  experienceLevel ExperienceLevel? @map("experience_level")
+  experienceLevel      ExperienceLevel? @map("experience_level")
+  aiQuestionsGenerated Boolean          @default(false) @map("ai_questions_generated")
+  aiQuestionsCompleted Boolean          @default(false) @map("ai_questions_completed")
+  completedAt          DateTime?        @map("completed_at")
 
-  completedAt DateTime? @map("completed_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  aiQuestions AIQuestion[]
+  user        Users        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_onboarding")
 }
@@ -207,7 +207,6 @@ model Habit {
   @@index([userId, active])
   @@index([skillId])
   @@index([phaseId])
-
   @@map("habits")
 }
 
@@ -231,11 +230,9 @@ model HabitLog {
   habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, completedDate])
-
   @@index([userId])
   @@index([completedDate])
   @@index([habitId])
-
   @@map("habit_logs")
 }
 
@@ -285,7 +282,6 @@ model UserSkill {
   @@index([score])
   @@index([userId])
   @@index([skillId])
-
   @@map("user_skills")
 }
 
@@ -303,7 +299,6 @@ model PhaseSkill {
   skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@unique([phaseId, skillId])
-
   @@map("phase_skills")
 }
 
@@ -360,7 +355,6 @@ model JournalEntry {
 
   @@index([userId])
   @@index([createdAt])
-
   @@map("journal_entries")
 }
 
@@ -393,7 +387,6 @@ model Goal {
 
   @@index([userId])
   @@index([status])
-
   @@map("goals")
 }
 
@@ -417,7 +410,6 @@ model WeeklyReview {
   user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-
   @@map("weekly_reviews")
 }
 
@@ -451,7 +443,6 @@ model UserAchievement {
   achievement Achievement @relation(fields: [achievementId], references: [id])
 
   @@unique([userId, achievementId])
-
   @@map("user_achievements")
 }
 
@@ -478,7 +469,6 @@ model DomainEvent {
   @@index([userId])
   @@index([createdAt])
   @@index([processed])
-
   @@map("domain_events")
 }
 
@@ -506,7 +496,6 @@ model DailyCheckIn {
   user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, checkInDate])
-
   @@map("daily_check_ins")
 }
 
@@ -535,9 +524,9 @@ model GeneratedPlan {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  users Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  regenerationReason String?  @map("regeneration_reason")
+  users              Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   habits GeneratedHabit[]
 
@@ -547,9 +536,7 @@ model GeneratedPlan {
 
   @@index([userId])
   @@index([status])
-
   @@map("generated_plans")
-  aiquestions AIQuestion[]
 }
 
 model GeneratedHabit {
@@ -586,7 +573,6 @@ model GeneratedHabit {
   habits Habit[]
 
   @@index([generatedPlanId])
-
   @@map("generated_habits")
 }
 
@@ -614,7 +600,6 @@ model GeneratedGoal {
   generatedPlan GeneratedPlan @relation(fields: [generatedPlanId], references: [id], onDelete: Cascade)
 
   @@index([generatedPlanId])
-
   @@map("generated_goals")
 }
 
@@ -644,7 +629,6 @@ model UserPlan {
   generatedPlan GeneratedPlan? @relation(fields: [generatedPlanId], references: [id])
 
   @@index([userId])
-
   @@map("user_plans")
 }
 
@@ -673,8 +657,48 @@ model UserPhase {
 
   @@index([userId])
   @@index([phaseId])
-
   @@map("user_phases")
+}
+
+model AIQuestion {
+  id String @id @default(cuid())
+
+  onboardingId String @map("onboarding_id")
+
+  question String
+
+  questionType AIQuestionType @default(TEXT) @map("question_type")
+
+  order Int
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  onboarding UserOnboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+
+  answers AIAnswer[]
+
+  @@index([onboardingId])
+  @@map("ai_questions")
+}
+
+model AIAnswer {
+  id String @id @default(cuid())
+
+  questionId String @map("question_id")
+
+  userId String @map("user_id")
+
+  answer Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  question AIQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([questionId])
+  @@map("ai_answers")
 }
 
 model Notification {
@@ -699,50 +723,25 @@ model Notification {
   user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
-
   @@map("notifications")
 }
 
-model AIQuestion {
-  id              String @id @default(cuid())
-
-  generatedPlanId String @map("generated_plan_id")
-
-  question        String
-
-  order           Int
-
-  createdAt       DateTime @default(now())
-
-  plan GeneratedPlan @relation(fields: [generatedPlanId], references: [id], onDelete: Cascade)
-
-  answers AIAnswer[]
-
-  @@map("ai_questions")
+enum AIQuestionType {
+  TEXT
+  MULTIPLE_CHOICE
+  SCALE
 }
-model AIAnswer {
-  id            String @id @default(cuid())
 
-  questionId    String @map("question_id")
-
-  userId        String @map("user_id")
-
-  answer        String
-
-  createdAt     DateTime @default(now())
-
-  question AIQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("ai_answers")
-}
 enum GeneratedPlanStatus {
   PENDING
-  GENERATING
-  GENERATED
-  FINALIZED
-  FAILED
+  QUESTIONS_GENERATING
+  QUESTIONS_FAILED
+  QUESTIONS_READY
+  ANSWERS_PENDING
+  PLAN_GENERATING
+  PLAN_GENERATED
+  PLAN_FINALIZED
+  PLAN_FAILED
 }
 
 enum GoalCategory {
@@ -791,4 +790,5 @@ enum OnboardingStep {
   BLOCKERS
   GENERATING_PLAN
   COMPLETED
+  AI_QUESTION
 }

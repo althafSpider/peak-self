@@ -20,7 +20,6 @@ export class AIPlanService {
   async generatePlan(
     prompt: string,
   ): Promise<AIGeneratedPlan> {
-    console.log("Prompt",prompt);
     
     try {
       const completion =
@@ -60,7 +59,43 @@ export class AIPlanService {
       );
     }
   }
+ async generateQuestions(
+    prompt: string,
+  ) {
+    try {
+      const completion =
+        await this.client.chat.send({
+          chatRequest: {
+            model:
+              'google/gemini-2.5-flash-preview',
+            messages: [
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+          },
+        });
 
+      const content =
+        completion.choices?.[0]?.message
+          ?.content;
+
+      if (!content) {
+        throw new Error(
+          'Empty AI response',
+        );
+      }
+
+      return JSON.parse(content);
+    } catch (error) {
+      console.error(error);
+
+      throw new InternalServerErrorException(
+        'Failed to generate AI questions',
+      );
+    }
+  }
   private validatePlan(
     plan: AIGeneratedPlan,
   ) {
