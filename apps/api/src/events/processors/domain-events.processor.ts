@@ -9,13 +9,13 @@ import { DomainEvent } from '@repo/db';
 import { AppLoggerService } from 'src/common/interceptors/logger/app-logger.service';
 import { PlanGenerationService } from 'src/plan/services/plan-generator.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { DOMAIN_EVENTS } from '../constants/domain-events.constant';
 
 
 
 @Injectable()
 export class DomainEventsProcessor
-  implements OnModuleInit
-{
+  implements OnModuleInit {
   private readonly POLLING_INTERVAL =
     5000;
 
@@ -25,7 +25,7 @@ export class DomainEventsProcessor
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AppLoggerService) private readonly logger: AppLoggerService,
     @Inject(PlanGenerationService) private readonly planGenerationService: PlanGenerationService,
-  ) {}
+  ) { }
 
   onModuleInit() {
     setInterval(async () => {
@@ -124,8 +124,13 @@ export class DomainEventsProcessor
     event: DomainEvent,
   ) {
     switch (event.eventType) {
-      case 'onboarding.completed':
+      case DOMAIN_EVENTS.ONBOARDING_COMPLETED:
         await this.handleOnboardingCompleted(
+          event,
+        );
+        break;
+      case DOMAIN_EVENTS.ONBOARDING_AI_QUESTIONS_COMPLETED:
+        await this.handleOnboardingAiQuestionsCompleted(
           event,
         );
         break;
@@ -157,4 +162,22 @@ export class DomainEventsProcessor
       event.userId,
     );
   }
+  private async handleOnboardingAiQuestionsCompleted(
+    event: DomainEvent,
+  ) {
+    if (!event.userId) {
+      throw new Error(
+        'Missing userId in onboarding.ai_questions_completed event',
+      );
+    }
+
+    this.logger.log(
+      `Handling onboarding AI questions completion for user ${event.userId}`,
+    );
+
+    await this.planGenerationService.generateQuestions(
+      event.userId,
+    );
+  }
 }
+

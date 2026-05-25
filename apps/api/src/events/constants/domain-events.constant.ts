@@ -13,6 +13,10 @@ export const DOMAIN_EVENTS = {
 
   ONBOARDING_BLOCKERS_COMPLETED:
     'onboarding.blockers_completed',
+  ONBOARDING_AI_QUESTIONS_COMPLETED:
+    'onboarding.ai_questions_completed',
+  ONBOARDING_AI_QUESTIONS_ANSWERED:
+    'onboarding.ai_questions_answered',
 
   PLAN_GENERATION_STARTED:
     'plan.generation_started',
