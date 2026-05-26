@@ -22,87 +22,161 @@ export class PlanGenerationService {
     private readonly promptService: PlanPromptService,
   ) {}
 
-  async generatePlan(userId: string, generatedPlanId: string) {
-    this.logger.log(`Generating AI plan for user ${userId}`);
-    //  first find onboarding
-    const onboarding = await this.prisma.userOnboarding.findUnique({
-      where: { userId },
-      include:{
-        aiQuestions:{
-          include:{
-            answers:true
-          }
-        }
-      }
-    });
-    if (!onboarding) {
-      throw new BadRequestException('Onboarding not found');
-    }
-    // validate onboarding completed
-    if (onboarding.currentStep !== OnboardingStep.COMPLETED) {
-      throw new BadRequestException('Onboarding not completed');
-    }
-    // create generation record
-    const generatedPlan = await this.prisma.generatedPlan.update({
-      where: { id: generatedPlanId },
-      data: {
-        userId,
-        status: GeneratedPlanStatus.PLAN_GENERATING,
+async generatePlan(userId: string, generatedPlanId: string) {
+  this.logger.log(`Generating AI plan for user ${userId}`);
+
+  const onboarding = await this.prisma.userOnboarding.findUnique({
+    where: { userId },
+    include: {
+      aiQuestions: {
+        include: { answers: true },
       },
-    });
-    try {
-      const qaPairs = onboarding.aiQuestions
-        ?.filter((q) => q.answers && q.answers.length > 0)
-        .map((q) => ({
-          question: q.question,
-          answer: q.answers[0].answer,
-          order: q.order,
-        })) ?? [];
-      const prompt = this.promptService.build(onboarding, qaPairs);
-      const aiPlan = await this.aiPlanService.generatePlan(prompt);
+    },
+  });
+
+  if (!onboarding) throw new BadRequestException('Onboarding not found');
+  if (onboarding.currentStep !== OnboardingStep.COMPLETED) {
+    throw new BadRequestException('Onboarding not completed');
+  }
+
+  await this.prisma.generatedPlan.update({
+    where: { id: generatedPlanId },
+    data: { status: GeneratedPlanStatus.PLAN_GENERATING },
+  });
+
+  try {
+    const qaPairs = onboarding.aiQuestions
+      ?.filter((q) => q.answers?.length > 0)
+      .map((q) => ({
+        question: q.question,
+        answer: q.answers[0].answer,
+        order: q.order,
+      })) ?? [];
+
+    const prompt = this.promptService.build(onboarding, qaPairs);
+    const aiPlan = await this.aiPlanService.generatePlan(prompt);
+
+    // Resolve or upsert skills referenced in the plan
+    const allSkillCodes = [
+      ...new Set([
+        ...aiPlan.skills.map((s) => s.code),
+        ...aiPlan.phases.flatMap((p) => [
+          ...p.focusSkillCodes,
+          ...p.habits.map((h) => h.skillCode).filter(Boolean),
+        ]),
+        ...aiPlan.goals.flatMap((g) => g.linkedSkillCodes ?? []),
+      ]),
+    ];
+
+    const skills = await Promise.all(
+      allSkillCodes.map((code) =>
+        this.prisma.skill.upsert({
+          where: { code },
+          update: {},
+          create: {
+            code,
+            name: code
+              .split('_')
+              .map((w) => w[0] + w.slice(1).toLowerCase())
+              .join(' '),
+          },
+        }),
+      ),
+    );
+    const skillByCode = Object.fromEntries(skills.map((s) => [s.code, s]));
+
+    // Upsert UserSkills for all referenced skill codes
+    await Promise.all(
+      skills.map((skill) =>
+        this.prisma.userSkill.upsert({
+          where: {
+            // add @@unique([userId, skillId]) to schema if not present
+            userId_skillId: { userId, skillId: skill.id },
+          },
+          update: {},
+          create: { userId, skillId: skill.id, score: 0, level: 1 },
+        }),
+      ),
+    );
+
+    // Persist phases, their skills, and habits
+    for (const phaseData of aiPlan.phases) {
+      const phase = await this.prisma.phase.upsert({
+        where: { phaseOrder: phaseData.phaseOrder },
+        update: {
+          name: phaseData.name,
+          description: phaseData.description,
+          durationWeeks: phaseData.durationWeeks,
+        },
+        create: {
+          name: phaseData.name,
+          description: phaseData.description,
+          phaseOrder: phaseData.phaseOrder,
+          durationWeeks: phaseData.durationWeeks,
+        },
+      });
+
+      // Link phase → skills
+      await Promise.all(
+        phaseData.focusSkillCodes.map((code) => {
+          const skill = skillByCode[code];
+          if (!skill) return;
+          return this.prisma.phaseSkill.upsert({
+            where: { phaseId_skillId: { phaseId: phase.id, skillId: skill.id } },
+            update: {},
+            create: { phaseId: phase.id, skillId: skill.id },
+          });
+        }),
+      );
+
+      // Create generated habits for this phase
       await this.prisma.generatedHabit.createMany({
-        data: aiPlan.habits.map((habit, index) => ({
-          generatedPlanId: generatedPlan.id,
+        data: phaseData.habits.map((habit, index) => ({
+          generatedPlanId,
+          skillId: habit.skillCode ? skillByCode[habit.skillCode]?.id : undefined,
           title: habit.title,
           description: habit.description,
+          reasoning: habit.reasoning,
           frequency: habit.frequency,
           targetCount: habit.targetCount,
           suggestedOrder: index,
         })),
       });
-      //!!ToDO 1-gnerate goals phase and other datas also,currently we are only genraating gaols for the dummy purpose
-
-      await this.prisma.generatedPlan.update({
-        where: {
-          id: generatedPlan.id,
-        },
-        data: {
-          status: GeneratedPlanStatus.PLAN_GENERATED,
-          generatedAt: new Date(),
-          rawPrompt: prompt,
-          rawResponse: JSON.stringify(aiPlan),
-        },
-      });
-
-      this.logger.log(`Plan generated successfully for user ${userId}`);
-      return generatedPlan.id;
-    } catch (error) {
-      await this.prisma.generatedPlan.update({
-        where: {
-          id: generatedPlan.id,
-        },
-        data: {
-          status: GeneratedPlanStatus.PLAN_FAILED,
-        },
-      });
-
-      this.logger.error(`Plan generation failed`, error.stack, {
-        userId,
-      });
-
-      throw error;
     }
+
+    // Persist generated goals
+    await this.prisma.generatedGoal.createMany({
+      data: aiPlan.goals.map((goal) => ({
+        generatedPlanId,
+        title: goal.title,
+        description: goal.description,
+        category: goal.category,
+        targetDate: goal.targetDate ? new Date(goal.targetDate) : null,
+      })),
+    });
+
+    await this.prisma.generatedPlan.update({
+      where: { id: generatedPlanId },
+      data: {
+        status: GeneratedPlanStatus.PLAN_GENERATED,
+        generatedAt: new Date(),
+        rawPrompt: prompt,
+        rawResponse: JSON.stringify(aiPlan),
+      },
+    });
+
+    this.logger.log(`Plan generated successfully for user ${userId}`);
+    return generatedPlanId;
+  } catch (error) {
+    await this.prisma.generatedPlan.update({
+      where: { id: generatedPlanId },
+      data: { status: GeneratedPlanStatus.PLAN_FAILED },
+    });
+
+    this.logger.error('Plan generation failed', error.stack, { userId });
+    throw error;
   }
+}
 
   async generateQuestions(userId: string) {
     this.logger.log(`Generating AI questions for user ${userId}`);
