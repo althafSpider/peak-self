@@ -59,9 +59,8 @@ export class AuthService {
 
     const url = new URL('/auth/callback', this.getAppUrl());
     url.searchParams.set('token', token);
-
     try {
-      await this.mailService.sendMagicLink(normalizedEmail, url.toString());
+     const token = await this.mailService.sendMagicLink(normalizedEmail, url.toString());
     } catch (error) {
       await this.prisma.magicLinks.deleteMany({
         where: { user_id: user.id },
@@ -70,7 +69,7 @@ export class AuthService {
       throw error;
     }
 
-    return { data: 'Magic link sent' };
+    return { data: token };
   }
 
 async verifyMagicLink(

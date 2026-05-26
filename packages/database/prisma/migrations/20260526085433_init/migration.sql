@@ -1,4 +1,10 @@
 -- CreateEnum
+CREATE TYPE "AIQuestionType" AS ENUM ('TEXT', 'MULTIPLE_CHOICE', 'SCALE');
+
+-- CreateEnum
+CREATE TYPE "GeneratedPlanStatus" AS ENUM ('PENDING', 'QUESTIONS_GENERATING', 'QUESTIONS_READY', 'ANSWERS_PENDING', 'PLAN_GENERATING', 'PLAN_GENERATED', 'PLAN_FINALIZED', 'QUESTIONS_FAILED', 'PLAN_FAILED');
+
+-- CreateEnum
 CREATE TYPE "GoalCategory" AS ENUM ('FITNESS', 'PRODUCTIVITY', 'FINANCE', 'LEARNING', 'MENTAL_HEALTH', 'SOCIAL', 'SPIRITUAL', 'CAREER', 'OTHER');
 
 -- CreateEnum
@@ -12,6 +18,48 @@ CREATE TYPE "ExperienceLevel" AS ENUM ('BEGINNER', 'INTERMEDIATE', 'ADVANCED');
 
 -- CreateEnum
 CREATE TYPE "GoalStatus" AS ENUM ('ACTIVE', 'COMPLETED', 'ABANDONED', 'PAUSED');
+
+-- CreateEnum
+CREATE TYPE "OnboardingStep" AS ENUM ('WELCOME', 'GOALS', 'EXPERIENCE', 'TIME_COMMITMENT', 'BLOCKERS', 'COMPLETED');
+
+-- CreateTable
+CREATE TABLE "sessions" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "refreshTokenHash" TEXT NOT NULL,
+    "userAgent" TEXT,
+    "ipAddress" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "magic_links" (
+    "id" TEXT NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "used" BOOLEAN NOT NULL DEFAULT false,
+    "user_id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "magic_links_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT,
+    "image" TEXT,
+    "google_id" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "user_profiles" (
@@ -32,11 +80,13 @@ CREATE TABLE "user_profiles" (
 CREATE TABLE "user_onboarding" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
-    "current_step" TEXT,
+    "current_step" "OnboardingStep" NOT NULL DEFAULT 'WELCOME',
     "primary_goal" TEXT,
     "blockers" TEXT[],
     "time_commitment_minutes" INTEGER,
     "experience_level" "ExperienceLevel",
+    "ai_questions_generated" BOOLEAN NOT NULL DEFAULT false,
+    "ai_questions_completed" BOOLEAN NOT NULL DEFAULT false,
     "completed_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -61,6 +111,7 @@ CREATE TABLE "habits" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "template_id" TEXT,
+    "source_generated_habit_id" TEXT,
     "title" TEXT NOT NULL,
     "description" TEXT,
     "frequency" "HabitFrequency" NOT NULL,
@@ -170,9 +221,9 @@ CREATE TABLE "goals" (
     "progress" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "status" "GoalStatus" NOT NULL,
     "target_date" TIMESTAMP(3),
+    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "goals_pkey" PRIMARY KEY ("id")
 );
@@ -241,6 +292,159 @@ CREATE TABLE "daily_check_ins" (
 
     CONSTRAINT "daily_check_ins_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateTable
+CREATE TABLE "generated_plans" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "status" "GeneratedPlanStatus" NOT NULL DEFAULT 'PENDING',
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "prompt_version" TEXT,
+    "ai_model" TEXT,
+    "raw_prompt" TEXT,
+    "raw_response" JSONB,
+    "generated_at" TIMESTAMP(3),
+    "finalized_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "regeneration_reason" TEXT,
+
+    CONSTRAINT "generated_plans_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "generated_habits" (
+    "id" TEXT NOT NULL,
+    "generated_plan_id" TEXT NOT NULL,
+    "skill_id" TEXT,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "reasoning" TEXT,
+    "frequency" "HabitFrequency" NOT NULL,
+    "target_count" INTEGER NOT NULL DEFAULT 1,
+    "suggested_order" INTEGER NOT NULL DEFAULT 0,
+    "accepted" BOOLEAN,
+    "edited" BOOLEAN NOT NULL DEFAULT false,
+    "deleted" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "generated_habits_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "generated_goals" (
+    "id" TEXT NOT NULL,
+    "generated_plan_id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "category" "GoalCategory" NOT NULL,
+    "target_date" TIMESTAMP(3),
+    "accepted" BOOLEAN,
+    "edited" BOOLEAN NOT NULL DEFAULT false,
+    "deleted" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "generated_goals_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_plans" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "generated_plan_id" TEXT,
+    "current_phase_id" TEXT,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completed_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_plans_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_phases" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "phase_id" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "progress" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completed_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_phases_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ai_questions" (
+    "id" TEXT NOT NULL,
+    "onboarding_id" TEXT NOT NULL,
+    "question" TEXT NOT NULL,
+    "question_type" "AIQuestionType" NOT NULL DEFAULT 'TEXT',
+    "order" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ai_questions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ai_answers" (
+    "id" TEXT NOT NULL,
+    "question_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "answer" JSONB NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ai_answers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "read" BOOLEAN NOT NULL DEFAULT false,
+    "scheduled_for" TIMESTAMP(3),
+    "sent_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sessions_refreshTokenHash_key" ON "sessions"("refreshTokenHash");
+
+-- CreateIndex
+CREATE INDEX "sessions_userId_idx" ON "sessions"("userId");
+
+-- CreateIndex
+CREATE INDEX "sessions_refreshTokenHash_revoked_expiresAt_idx" ON "sessions"("refreshTokenHash", "revoked", "expiresAt");
+
+-- CreateIndex
+CREATE INDEX "sessions_expiresAt_idx" ON "sessions"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "magic_links_token_hash_key" ON "magic_links"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "magic_links_token_hash_used_expires_at_idx" ON "magic_links"("token_hash", "used", "expires_at");
+
+-- CreateIndex
+CREATE INDEX "magic_links_user_id_used_idx" ON "magic_links"("user_id", "used");
+
+-- CreateIndex
+CREATE INDEX "magic_links_expires_at_idx" ON "magic_links"("expires_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_google_id_key" ON "users"("google_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "user_profiles_user_id_key" ON "user_profiles"("user_id");
@@ -321,7 +525,49 @@ CREATE INDEX "domain_events_user_id_idx" ON "domain_events"("user_id");
 CREATE INDEX "domain_events_created_at_idx" ON "domain_events"("created_at");
 
 -- CreateIndex
+CREATE INDEX "domain_events_processed_idx" ON "domain_events"("processed");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "daily_check_ins_user_id_checkInDate_key" ON "daily_check_ins"("user_id", "checkInDate");
+
+-- CreateIndex
+CREATE INDEX "generated_plans_user_id_idx" ON "generated_plans"("user_id");
+
+-- CreateIndex
+CREATE INDEX "generated_plans_status_idx" ON "generated_plans"("status");
+
+-- CreateIndex
+CREATE INDEX "generated_habits_generated_plan_id_idx" ON "generated_habits"("generated_plan_id");
+
+-- CreateIndex
+CREATE INDEX "generated_goals_generated_plan_id_idx" ON "generated_goals"("generated_plan_id");
+
+-- CreateIndex
+CREATE INDEX "user_plans_user_id_idx" ON "user_plans"("user_id");
+
+-- CreateIndex
+CREATE INDEX "user_phases_user_id_idx" ON "user_phases"("user_id");
+
+-- CreateIndex
+CREATE INDEX "user_phases_phase_id_idx" ON "user_phases"("phase_id");
+
+-- CreateIndex
+CREATE INDEX "ai_questions_onboarding_id_idx" ON "ai_questions"("onboarding_id");
+
+-- CreateIndex
+CREATE INDEX "ai_answers_user_id_idx" ON "ai_answers"("user_id");
+
+-- CreateIndex
+CREATE INDEX "ai_answers_question_id_idx" ON "ai_answers"("question_id");
+
+-- CreateIndex
+CREATE INDEX "notifications_user_id_read_idx" ON "notifications"("user_id", "read");
+
+-- AddForeignKey
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "magic_links" ADD CONSTRAINT "magic_links_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "user_profiles" ADD CONSTRAINT "user_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -343,6 +589,9 @@ ALTER TABLE "habits" ADD CONSTRAINT "habits_skill_id_fkey" FOREIGN KEY ("skill_i
 
 -- AddForeignKey
 ALTER TABLE "habits" ADD CONSTRAINT "habits_phase_id_fkey" FOREIGN KEY ("phase_id") REFERENCES "phases"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "habits" ADD CONSTRAINT "habits_source_generated_habit_id_fkey" FOREIGN KEY ("source_generated_habit_id") REFERENCES "generated_habits"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "habit_logs" ADD CONSTRAINT "habit_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -388,3 +637,42 @@ ALTER TABLE "domain_events" ADD CONSTRAINT "domain_events_user_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "daily_check_ins" ADD CONSTRAINT "daily_check_ins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "generated_plans" ADD CONSTRAINT "generated_plans_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "generated_habits" ADD CONSTRAINT "generated_habits_generated_plan_id_fkey" FOREIGN KEY ("generated_plan_id") REFERENCES "generated_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "generated_habits" ADD CONSTRAINT "generated_habits_skill_id_fkey" FOREIGN KEY ("skill_id") REFERENCES "skills"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "generated_goals" ADD CONSTRAINT "generated_goals_generated_plan_id_fkey" FOREIGN KEY ("generated_plan_id") REFERENCES "generated_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_plans" ADD CONSTRAINT "user_plans_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_plans" ADD CONSTRAINT "user_plans_current_phase_id_fkey" FOREIGN KEY ("current_phase_id") REFERENCES "phases"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_plans" ADD CONSTRAINT "user_plans_generated_plan_id_fkey" FOREIGN KEY ("generated_plan_id") REFERENCES "generated_plans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_phases" ADD CONSTRAINT "user_phases_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_phases" ADD CONSTRAINT "user_phases_phase_id_fkey" FOREIGN KEY ("phase_id") REFERENCES "phases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ai_questions" ADD CONSTRAINT "ai_questions_onboarding_id_fkey" FOREIGN KEY ("onboarding_id") REFERENCES "user_onboarding"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ai_answers" ADD CONSTRAINT "ai_answers_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "ai_questions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ai_answers" ADD CONSTRAINT "ai_answers_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

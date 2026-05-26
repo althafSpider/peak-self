@@ -4,7 +4,12 @@ import { AIPlanService } from './ai-plan.service';
 import { PlanPromptService } from './plan-prompt.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AppLoggerService } from 'src/common/interceptors/logger/app-logger.service';
-import { AIQuestion, GeneratedPlanStatus, OnboardingStep } from '@repo/db';
+import {
+  AIQuestion,
+  AIQuestionType,
+  GeneratedPlanStatus,
+  OnboardingStep,
+} from '@repo/db';
 
 @Injectable()
 export class PlanGenerationService {
@@ -12,10 +17,11 @@ export class PlanGenerationService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AppLoggerService) private readonly logger: AppLoggerService,
     @Inject(AIPlanService) private readonly aiPlanService: AIPlanService,
-    @Inject(PlanPromptService) private readonly promptService: PlanPromptService,
-  ) { }
+    @Inject(PlanPromptService)
+    private readonly promptService: PlanPromptService,
+  ) {}
 
-  async generatePlan(userId: string) {
+  async generatePlan(userId: string, generatedPlanId: string) {
     this.logger.log(`Generating AI plan for user ${userId}`);
     //  first find onboarding
     const onboarding = await this.prisma.userOnboarding.findUnique({
@@ -29,14 +35,15 @@ export class PlanGenerationService {
       throw new BadRequestException('Onboarding not completed');
     }
     // create generation record
-    const generatedPlan = await this.prisma.generatedPlan.create({
+    const generatedPlan = await this.prisma.generatedPlan.update({
+      where: { id: generatedPlanId },
       data: {
         userId,
         status: GeneratedPlanStatus.PLAN_GENERATING,
       },
     });
     try {
-      const prompt =  this.promptService.build(onboarding);
+      const prompt = this.promptService.build(onboarding);
       const aiPlan = await this.aiPlanService.generatePlan(prompt);
       await this.prisma.generatedHabit.createMany({
         data: aiPlan.habits.map((habit, index) => ({
@@ -48,7 +55,7 @@ export class PlanGenerationService {
           suggestedOrder: index,
         })),
       });
-      //!!ToDO 1-gnerate goals phase and other datas also,currently we are only genraating gaols for the dummy purpose 
+      //!!ToDO 1-gnerate goals phase and other datas also,currently we are only genraating gaols for the dummy purpose
 
       await this.prisma.generatedPlan.update({
         where: {
@@ -90,7 +97,7 @@ export class PlanGenerationService {
     if (!onboarding) {
       throw new BadRequestException('Onboarding not found');
     }
-    if (onboarding.currentStep !== OnboardingStep.AI_QUESTION) {
+    if (onboarding.currentStep !== OnboardingStep.COMPLETED) {
       throw new BadRequestException('Ai Questions generation not completed');
     }
 
@@ -102,15 +109,33 @@ export class PlanGenerationService {
     });
     try {
       const prompt = this.promptService.buildQuestionsPrompt(onboarding);
-      const aiQuestions = await this.aiPlanService.generateQuestions(prompt);
+      const response = await this.aiPlanService.generateQuestions(prompt);
+
+      this.logger.log('raw response', response);
+      const aiQuestions = response.questions || [];
+      this.logger.log(`Questions generated payload`, aiQuestions);
+      if (!Array.isArray(aiQuestions)) {
+        throw new Error('Invalid AI questions response');
+      }
+
       await this.prisma.aIQuestion.createMany({
-        data: aiQuestions.map((question:AIQuestion, index) => ({
-          generatedPlanId: genratedQuestions.id,
-          question: question.question,
-          onboardingId: onboarding.id,
-          questionType: "TEXT",
-          order: index,
-        })),
+        data: aiQuestions?.map(
+          (
+            q: {
+              question: string;
+              questionType?: AIQuestionType;
+              order?: number;
+            },
+            index: number,
+          ) => ({
+            generatedPlanId: genratedQuestions.id,
+            onboardingId: onboarding.id,
+
+            question: q.question,
+            questionType: q.questionType ?? AIQuestionType.TEXT,
+            order: q.order ?? index,
+          }),
+        ),
       });
     } catch (error) {
       this.logger.error(`Questions generation failed`, error.stack, {

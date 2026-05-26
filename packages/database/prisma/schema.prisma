@@ -532,7 +532,8 @@ model GeneratedPlan {
 
   generatedGoals GeneratedGoal[]
 
-  userPlans UserPlan[]
+  userPlans   UserPlan[]
+  aiquestions AIQuestion[]
 
   @@index([userId])
   @@index([status])
@@ -663,9 +664,9 @@ model UserPhase {
 model AIQuestion {
   id String @id @default(cuid())
 
-  onboardingId String @map("onboarding_id")
-
-  question String
+  onboardingId    String @map("onboarding_id")
+  generatedPlanId String @map("generated_plan_id")
+  question        String
 
   questionType AIQuestionType @default(TEXT) @map("question_type")
 
@@ -673,9 +674,9 @@ model AIQuestion {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  onboarding UserOnboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
-
-  answers AIAnswer[]
+  onboarding    UserOnboarding @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  generatedPlan GeneratedPlan  @relation(fields: [generatedPlanId], references: [id])
+  answers       AIAnswer[]
 
   @@index([onboardingId])
   @@map("ai_questions")
@@ -734,13 +735,16 @@ enum AIQuestionType {
 
 enum GeneratedPlanStatus {
   PENDING
+
   QUESTIONS_GENERATING
-  QUESTIONS_FAILED
   QUESTIONS_READY
   ANSWERS_PENDING
+
   PLAN_GENERATING
   PLAN_GENERATED
   PLAN_FINALIZED
+
+  QUESTIONS_FAILED
   PLAN_FAILED
 }
 
@@ -788,7 +792,5 @@ enum OnboardingStep {
   EXPERIENCE
   TIME_COMMITMENT
   BLOCKERS
-  GENERATING_PLAN
   COMPLETED
-  AI_QUESTION
 }

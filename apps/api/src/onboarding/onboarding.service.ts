@@ -243,7 +243,7 @@ export class OnboardingService {
         where: { userId },
         data: {
           blockers,
-          currentStep: OnboardingStep.AI_QUESTION,
+          currentStep: OnboardingStep.COMPLETED,
         },
       });
 
@@ -254,7 +254,7 @@ export class OnboardingService {
         entityId: updated.id,
         payload: {
           blockers,
-          nextStep: OnboardingStep.AI_QUESTION,
+          nextStep: OnboardingStep.COMPLETED,
         },
       }, tx);
       return updated;
@@ -270,7 +270,7 @@ export class OnboardingService {
     // Validate workflow state
     this.assertCurrentStep(
       onboarding.currentStep,
-      OnboardingStep.GENERATING_PLAN,
+      OnboardingStep.COMPLETED,
     );
 
     // Prevent duplicate completion

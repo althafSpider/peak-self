@@ -66,8 +66,7 @@ export class AIPlanService {
       const completion =
         await this.client.chat.send({
           chatRequest: {
-            model:
-              'google/gemini-2.5-flash-preview',
+            model:'openrouter/free',
             messages: [
               {
                 role: 'user',
