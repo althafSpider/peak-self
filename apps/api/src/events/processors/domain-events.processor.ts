@@ -130,11 +130,11 @@ export class DomainEventsProcessor
           event,
         );
         break;
-      // case DOMAIN_EVENTS.ONBOARDING_AI_QUESTIONS_COMPLETED:
-      //   await this.handleOnboardingAiQuestionsCompleted(
-      //     event,
-      //   );
-      //   break;
+      case DOMAIN_EVENTS.AI_QUESTIONS_ANSWERED:
+        await this.handleOnboardingCompleted(
+          event,
+        );
+        break;
 
       default:
         this.logger.warn(
@@ -146,23 +146,24 @@ export class DomainEventsProcessor
     }
   }
 
-  // private async handleOnboardingCompleted(
-  //   event: DomainEvent,
-  // ) {
-  //   if (!event.userId) {
-  //     throw new Error(
-  //       'Missing userId in onboarding.completed event',
-  //     );
-  //   }
+  private async handleOnboardingCompleted(
+    event: DomainEvent,
+  ) {
+    if (!event.userId) {
+      throw new Error(
+        'Missing userId in onboarding.completed event',
+      );
+    }
 
-  //   this.logger.log(
-  //     `Handling onboarding completion for user ${event.userId}`,
-  //   );
+    this.logger.log(
+      `Handling onboarding completion for user ${event.userId}`,
+    );
 
-  //   await this.planGenerationService.generatePlan(
-  //     event.userId,
-  //   );
-  // }
+    await this.planGenerationService.generatePlan(
+      event.userId,
+      event.entityId!,
+    );
+  }
   private async handleOnboardingAiQuestionsCompleted(
     event: DomainEvent,
   ) {

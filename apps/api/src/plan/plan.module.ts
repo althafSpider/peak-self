@@ -4,12 +4,13 @@ import { PlanGenerationService } from './services/plan-generator.service';
 import { AIPlanService } from './services/ai-plan.service';
 import { PlanPromptService } from './services/plan-prompt.service';
 import { AppLoggerModule } from 'src/common/interceptors/logger/logger.module';
+import { AIAnswerService } from './services/ai-answer.service';
 
 @Global()
 @Module({
   imports: [AppLoggerModule],
   controllers: [PlanController],
-  providers: [PlanGenerationService, AIPlanService, PlanPromptService],
+  providers: [PlanGenerationService, AIPlanService, PlanPromptService,AIAnswerService],
   exports: [PlanGenerationService],
 })
 export class PlanModule {}

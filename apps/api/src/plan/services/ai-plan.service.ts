@@ -109,7 +109,7 @@ export class AIPlanService {
     ) {
       throw new Error(
         'Invalid AI response: habits must be array',
-      );
+      )
     }
 
     for (const habit of plan.habits) {

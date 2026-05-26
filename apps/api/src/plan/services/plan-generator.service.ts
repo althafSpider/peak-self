@@ -10,6 +10,7 @@ import {
   GeneratedPlanStatus,
   OnboardingStep,
 } from '@repo/db';
+import { DOMAIN_EVENTS } from 'src/events/constants/domain-events.constant';
 
 @Injectable()
 export class PlanGenerationService {
@@ -26,6 +27,13 @@ export class PlanGenerationService {
     //  first find onboarding
     const onboarding = await this.prisma.userOnboarding.findUnique({
       where: { userId },
+      include:{
+        aiQuestions:{
+          include:{
+            answers:true
+          }
+        }
+      }
     });
     if (!onboarding) {
       throw new BadRequestException('Onboarding not found');
@@ -43,7 +51,14 @@ export class PlanGenerationService {
       },
     });
     try {
-      const prompt = this.promptService.build(onboarding);
+      const qaPairs = onboarding.aiQuestions
+        ?.filter((q) => q.answers && q.answers.length > 0)
+        .map((q) => ({
+          question: q.question,
+          answer: q.answers[0].answer,
+          order: q.order,
+        })) ?? [];
+      const prompt = this.promptService.build(onboarding, qaPairs);
       const aiPlan = await this.aiPlanService.generatePlan(prompt);
       await this.prisma.generatedHabit.createMany({
         data: aiPlan.habits.map((habit, index) => ({
@@ -111,32 +126,52 @@ export class PlanGenerationService {
       const prompt = this.promptService.buildQuestionsPrompt(onboarding);
       const response = await this.aiPlanService.generateQuestions(prompt);
 
-      this.logger.log('raw response', response);
       const aiQuestions = response.questions || [];
-      this.logger.log(`Questions generated payload`, aiQuestions);
       if (!Array.isArray(aiQuestions)) {
         throw new Error('Invalid AI questions response');
       }
-
-      await this.prisma.aIQuestion.createMany({
-        data: aiQuestions?.map(
-          (
-            q: {
-              question: string;
-              questionType?: AIQuestionType;
-              order?: number;
+      const genrateQuestion = await this.prisma.$transaction(async (tx) => {
+        await tx.aIQuestion.createMany({
+          data: aiQuestions?.map(
+            (
+              q: {
+                question: string;
+                questionType?: AIQuestionType;
+                order?: number;
+              },
+              index: number,
+            ) => ({
+              generatedPlanId: genratedQuestions.id,
+              onboardingId: onboarding.id,
+              
+              question: q.question,
+              questionType: q.questionType ?? AIQuestionType.TEXT,
+              order: q.order ?? index,
+            }),
+          ),
+        });
+        await tx.generatedPlan.update({
+          where: { id: genratedQuestions.id },
+          data: {
+            status: GeneratedPlanStatus.QUESTIONS_READY,
+            rawPrompt: prompt,
+            rawResponse: JSON.stringify(response),
+          },
+        });
+        await tx.domainEvent.create({
+          data: {
+            userId,
+            eventType: DOMAIN_EVENTS.AI_QUESTIONS_GENERATED,
+            entityType: 'ai_questions',
+            entityId: genratedQuestions.id,
+            payload: {
+              onboardingId: onboarding.id,
+              questionsCount: aiQuestions.length,
             },
-            index: number,
-          ) => ({
-            generatedPlanId: genratedQuestions.id,
-            onboardingId: onboarding.id,
-
-            question: q.question,
-            questionType: q.questionType ?? AIQuestionType.TEXT,
-            order: q.order ?? index,
-          }),
-        ),
+          },
+        });
       });
+      return genrateQuestion
     } catch (error) {
       this.logger.error(`Questions generation failed`, error.stack, {
         userId,

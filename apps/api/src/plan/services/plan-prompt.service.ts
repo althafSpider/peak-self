@@ -1,9 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { UserOnboarding } from '@repo/db';
 
+interface QAPair {
+  question: string;
+  answer: unknown;
+  order: number;
+}
+
 @Injectable()
 export class PlanPromptService {
-  build(onboarding: UserOnboarding): string {
+  build(onboarding: UserOnboarding, qaPairs?: QAPair[]): string {
+    const qaSection = qaPairs && qaPairs.length > 0
+      ? `
+FOLLOW-UP Q&A FROM USER:
+${qaPairs
+  .sort((a, b) => a.order - b.order)
+  .map(
+    (qa, i) =>
+      `Q${i + 1}: ${qa.question}\nA${i + 1}: ${JSON.stringify(qa.answer)}`,
+  )
+  .join('\n\n')}
+
+Use the user's answers above to tailor each habit precisely to their unique situation, preferences, and constraints.
+`
+      : '';
+
     return `
 You are an expert self-improvement system.
 
@@ -22,7 +43,7 @@ ${onboarding.timeCommitmentMinutes} minutes
 
 Current Blockers:
 ${onboarding.blockers.join(', ')}
-
+${qaSection}
 RULES:
 
 - Return ONLY valid JSON
@@ -31,6 +52,7 @@ RULES:
 - Generate between 3 and 5 habits
 - Habits must be realistic
 - Habits must fit within the user's time commitment
+- Each habit must address the user's specific blockers and Q&A responses
 
 JSON FORMAT:
 
@@ -48,9 +70,7 @@ JSON FORMAT:
 `;
   }
 
-  buildQuestionsPrompt(
-    onboarding: UserOnboarding,
-  ): string {
+  buildQuestionsPrompt(onboarding: UserOnboarding): string {
     return `
 You are an expert behavioral coach.
 
