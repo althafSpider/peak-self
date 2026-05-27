@@ -303,6 +303,11 @@ async verifyMagicLink(
         email: true,
         name: true,
         image: true,
+        profile:{
+          select:{
+            onboardingStatus:true
+          }
+        }
       },
     });
 

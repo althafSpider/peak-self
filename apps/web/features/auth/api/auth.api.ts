@@ -6,20 +6,37 @@ import { AxiosResponse } from "axios";
    TYPES
 ========================= */
 
+export interface ApiEnvelope<T> {
+  statusCode: number;
+  message: string;
+  data: T;
+}
+
+function unwrapEnvelope<T>(body: unknown): T {
+  if (!body || typeof body !== "object") return body as T;
+  const maybeEnvelope = body as Partial<ApiEnvelope<T>>;
+  if ("data" in maybeEnvelope && maybeEnvelope.data !== undefined) {
+    return maybeEnvelope.data as T;
+  }
+  return body as T;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string | null;
   image: string | null;
-  profile: {
+  profile?: {
     onboardingStatus: OnboardingStatus;
-  };
+  } | null;
   
 }
 
-export interface Session {
+export interface SessionData {
   user: User;
 }
+
+export type Session = SessionData;
 
 export interface LoginPayload {
   email: string;
@@ -45,7 +62,7 @@ export const AuthApi = {
       data
     );
 
-    return response.data;
+    return unwrapEnvelope<{ success: boolean }>(response.data);
   },
 
   /*
@@ -60,7 +77,7 @@ export const AuthApi = {
       data
     );
 
-    return response.data;
+    return unwrapEnvelope<{ success: boolean }>(response.data);
   },
 
   /*
@@ -68,9 +85,8 @@ export const AuthApi = {
    * Cookies are sent automatically via withCredentials.
    */
   getCurrentUser: async (): Promise<Session> => {
-    const response = await get<Session>("/auth/me");
-
-    return response.data;
+    const response = await get<ApiEnvelope<SessionData> | SessionData>("/auth/me");
+    return unwrapEnvelope<SessionData>(response.data);
   },
 
   /*
@@ -81,7 +97,7 @@ export const AuthApi = {
   refreshSession: async (): Promise<{ success: boolean }> => {
     const response = await post<{ success: boolean }>("/auth/refresh");
 
-    return response.data;
+    return unwrapEnvelope<{ success: boolean }>(response.data);
   },
 
   /*
@@ -91,7 +107,7 @@ export const AuthApi = {
   logout: async (): Promise<{ success: boolean }> => {
     const response = await post<{ success: boolean }>("/auth/logout");
 
-    return response.data;
+    return unwrapEnvelope<{ success: boolean }>(response.data);
   },
 
   /*

@@ -136,6 +136,9 @@ export class AuthController {
         email: user.email,
         name: user.name,
         image: user.image,
+        profile: {
+          onboardingStatus: user?.profile?.onboardingStatus,
+        },
       },
     };
   }
