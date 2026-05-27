@@ -1,4 +1,5 @@
 import { get, post, del } from "@/lib/api-client";
+import { OnboardingStatus } from "@/lib/enums/onboarding";
 import { AxiosResponse } from "axios";
 
 /* =========================
@@ -10,6 +11,10 @@ export interface User {
   email: string;
   name: string | null;
   image: string | null;
+  profile: {
+    onboardingStatus: OnboardingStatus;
+  };
+  
 }
 
 export interface Session {

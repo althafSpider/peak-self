@@ -33,7 +33,11 @@ export function LoginForm({
       router.push("/auth/check-email");
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Something went wrong";
+        typeof (err as any)?.message === "string"
+          ? (err as any).message
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -41,9 +45,12 @@ export function LoginForm({
   };
 
   const handleGoogleLogin = () => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-    window.location.href = `${baseUrl}/auth/google`;
+    const apiBase =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/";
+    const origin = apiBase
+      .replace(/\/+$/, "")
+      .replace(/\/api$/i, "");
+    window.location.href = `${origin}/auth/google`;
   };
 
   return (

@@ -4,11 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { useAuth } from "@/features/auth/context/auth-context";
 
 export default function DashboardPage() {
-  return (
-    <ProtectedRoute>
-      <DashboardContent />
-    </ProtectedRoute>
-  );
+  return <DashboardContent />;
 }
 
 function DashboardContent() {
@@ -21,9 +17,7 @@ function DashboardContent() {
         <h1 className="text-lg font-semibold">Dashboard</h1>
         <div className="flex items-center gap-4">
           {user && (
-            <span className="text-sm text-muted-foreground">
-              {user.email}
-            </span>
+            <span className="text-sm text-muted-foreground">{user.email}</span>
           )}
           <button
             onClick={logout}

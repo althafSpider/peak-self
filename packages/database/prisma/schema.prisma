@@ -523,7 +523,10 @@ model GeneratedPlan {
   finalizedAt DateTime? @map("finalized_at")
 
   createdAt DateTime @default(now()) @map("created_at")
+  retryCount Int @default(0) @map("retry_count")
 
+  lastError String? @map("last_error")
+  lastFailedAt DateTime? @map("last_failed_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
   regenerationReason String?  @map("regeneration_reason")
   users              Users    @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -118,6 +118,15 @@ export class DomainEventsProcessor
           userId: event.userId,
         },
       );
+      await this.prisma.domainEvent.update({
+        where: {
+          id: event.id,
+        },
+
+        data: {
+          processed: false,
+        },
+      });
     }
   }
 
