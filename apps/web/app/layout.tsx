@@ -3,7 +3,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
-import { AuthProviderWrapper } from "@/components/auth-provider-wrapper";
+import { AuthProviderWrapper } from "@/components/auth/auth-provider-wrapper";
+import { ThemeProvider } from "@/components/layout/theme-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -29,7 +30,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", inter.variable)}>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AuthProviderWrapper>{children}</AuthProviderWrapper>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProviderWrapper>{children}</AuthProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

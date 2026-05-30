@@ -26,7 +26,7 @@ const COOKIE_OPTIONS = {
     secure: isProduction,
     sameSite: isProduction ? 'none' as const : 'lax' as const,
     path: '/',
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    maxAge: 90 * 60 * 1000, // 15 minutes
   },
   refreshToken: {
     httpOnly: true,
