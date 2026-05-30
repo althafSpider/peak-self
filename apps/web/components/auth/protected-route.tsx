@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/context/auth-context";
+import { MobiusLoopIcon } from "../ui/mobius-loop-icon";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -29,7 +30,7 @@ export function ProtectedRoute({
     ) : (
       <div className="flex min-h-svh items-center justify-center">
         <div className="flex flex-col items-center gap-2">
-          <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <MobiusLoopIcon />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>

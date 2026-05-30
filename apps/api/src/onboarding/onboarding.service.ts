@@ -28,8 +28,10 @@ export class OnboardingService {
         actual,
         expected,
       });
-      if (actual === OnboardingStep.COMPLETED)
-        throw new ConflictException('Onboarding already completed');
+      if (actual === OnboardingStep.COMPLETED){
+         throw new ConflictException('Onboarding already completed');
+      }
+       
       throw new BadRequestException(
         `Expected onboarding step ${expected}, got ${actual}`,
       );

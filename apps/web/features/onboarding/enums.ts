@@ -5,3 +5,10 @@ export const OnboardingStatus = {
 } as const;
 
 export type OnboardingStatus = (typeof OnboardingStatus)[keyof typeof OnboardingStatus];
+
+export enum ExperienceLevel {
+  BEGINNER = "BEGINNER",
+  INTERMEDIATE = "INTERMEDIATE",
+  ADVANCED = "ADVANCED",
+} 
+

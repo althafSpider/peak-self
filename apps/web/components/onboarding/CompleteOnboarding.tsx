@@ -5,6 +5,12 @@ import { useOnboardingStore } from "@/features/store/onboarding.store";
 const CompleteOnboarding = () => {
    const nextStep = useOnboardingStore((state) => state.nextStep);
    const previousStep = useOnboardingStore((state) => state.previousStep);
+   try {
+  
+   } catch (error) {
+    console.log(error);
+    
+   }
   return (
     <div>
       Completing Onboarding
